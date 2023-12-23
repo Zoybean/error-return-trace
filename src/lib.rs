@@ -42,7 +42,10 @@ impl<T, E> Trace<T, E> {
 
     /// convert to the equivalent result, but prevent future tracing
     fn as_result(self) -> Result<T, Traced<E>> {
-        self.into()
+        match self {
+            Trace::Ok(o) => Ok(o),
+            Trace::Err(e, t) => Err(Traced(e, t)),
+        }
     }
 
     /// add a cause trace to an existing error
@@ -54,10 +57,7 @@ impl<T, E> Trace<T, E> {
 
 impl<T, E> From<Trace<T, E>> for Result<T, Traced<E>> {
     fn from(value: Trace<T, E>) -> Self {
-        match value {
-            Trace::Ok(o) => Ok(o),
-            Trace::Err(e, t) => Err(Traced(e, t)),
-        }
+        value.as_result()
     }
 }
 
