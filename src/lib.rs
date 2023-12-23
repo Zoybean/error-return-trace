@@ -23,6 +23,13 @@ impl From<std::panic::Location<'_>> for Location {
 
 #[derive(Default)]
 pub struct ReturnTrace(Vec<Location>);
+impl ReturnTrace {
+    #[track_caller]
+    pub fn push_trace(&mut self) {
+        let l = *std::panic::Location::caller();
+        self.0.push(l.into())
+    }
+}
 impl std::fmt::Debug for ReturnTrace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#?}", self.0)
@@ -31,14 +38,6 @@ impl std::fmt::Debug for ReturnTrace {
 
 #[derive(Debug)]
 pub struct Traced<E>(E, ReturnTrace);
-
-impl ReturnTrace {
-    #[track_caller]
-    pub fn push_trace(&mut self) {
-        let l = *std::panic::Location::caller();
-        self.0.push(l.into())
-    }
-}
 
 #[derive(Debug)]
 pub enum Trace<T, E> {
@@ -100,7 +99,7 @@ impl<T, E, F: From<E>> FromResidual<Trace<!, E>> for Trace<T, F> {
     fn from_residual(r: Trace<!, E>) -> Self {
         match r {
             Trace::Err(e, mut t) => {
-                // trace the expression marked with the ?-operator
+                //
                 t.push_trace();
                 Self::Err(e.into(), t)
             }
