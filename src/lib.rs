@@ -24,10 +24,8 @@ impl From<std::panic::Location<'_>> for Location {
 #[derive(Default)]
 pub struct ReturnTrace(Vec<Location>);
 impl ReturnTrace {
-    #[track_caller]
-    pub fn push_trace(&mut self) {
-        let l = *std::panic::Location::caller();
-        self.0.push(l.into())
+    pub fn push(&mut self, location: &std::panic::Location<'_>) {
+        self.0.push(location.to_owned().into())
     }
 }
 impl std::fmt::Debug for ReturnTrace {
@@ -45,18 +43,23 @@ pub enum Trace<T, E> {
     Err(E, ReturnTrace),
 }
 impl<T, E> Trace<T, E> {
+    /// make a new error with an empty trace
     pub fn err(e: E) -> Self {
         Self::Err(e, Default::default())
     }
+
+    /// make a new error, recording the instantiation site
     #[track_caller]
     pub fn err_here(e: E) -> Self {
         Trace::err(e)?
     }
 
+    /// convert to the equivalent result, but prevent future tracing
     fn as_result(self) -> Result<T, Traced<E>> {
         self.into()
     }
 
+    /// add a cause trace to an existing error
     pub fn caused_by(mut self, t: ReturnTrace) -> Self {
         t.caused(&mut self);
         self
@@ -111,7 +114,7 @@ impl<T, E, F: From<E>> FromResidual<Trace<!, E>> for Trace<T, F> {
         match r {
             Trace::Err(e, mut t) => {
                 // trace the ?-return of the error
-                t.push_trace();
+                t.push(std::panic::Location::caller());
                 Self::Err(e.into(), t)
             }
             // satisfy the compiler that the match is definitely exhaustive
