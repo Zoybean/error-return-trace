@@ -49,8 +49,13 @@ impl<T, E> Trace<T, E> {
     }
 
     /// add a cause trace to an existing error
-    pub fn caused_by(mut self, t: ReturnTrace) -> Self {
-        t.caused(&mut self);
+    pub fn caused_by(mut self, mut trace: ReturnTrace) -> Self {
+        if let Trace::Err(_, t) = &mut self {
+            // put the cause first
+            std::mem::swap(&mut trace, t);
+            // put the rest of the trace after
+            t.0.extend(trace.0);
+        };
         self
     }
 }
@@ -58,25 +63,6 @@ impl<T, E> Trace<T, E> {
 impl<T, E> From<Trace<T, E>> for Result<T, Traced<E>> {
     fn from(value: Trace<T, E>) -> Self {
         value.as_result()
-    }
-}
-
-trait Caused<T> {
-    fn caused(self, other: &mut T);
-}
-impl Caused<Self> for ReturnTrace {
-    fn caused(mut self, other: &mut Self) {
-        // put the cause first
-        std::mem::swap(&mut self, other);
-        // put the rest of the trace after
-        other.0.extend(self.0);
-    }
-}
-impl<T, E> Caused<Trace<T, E>> for ReturnTrace {
-    fn caused(self, other: &mut Trace<T, E>) {
-        if let Trace::Err(_, ref mut t) = other {
-            self.caused(t);
-        }
     }
 }
 
