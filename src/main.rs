@@ -48,7 +48,7 @@ fn hello() -> Trace<(), PermissionDenied> {
 pub struct FileNotFound;
 
 fn bang1() -> Trace<(), FileNotFound> {
-    Trace::err(FileNotFound)?
+    Trace::err_here(FileNotFound)
 }
 
 #[derive(Debug, Error)]
@@ -56,5 +56,5 @@ fn bang1() -> Trace<(), FileNotFound> {
 pub struct PermissionDenied;
 
 fn bang2() -> Trace<(), PermissionDenied> {
-    Trace::err(PermissionDenied)?
+    Trace::err_here(PermissionDenied)
 }
