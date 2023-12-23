@@ -50,14 +50,21 @@ impl<T, E> Trace<T, E> {
     }
 
     fn as_result(self) -> Result<T, Traced<E>> {
-        match self {
-            Trace::Ok(o) => Ok(o),
-            Trace::Err(e, t) => Err(Traced(e, t)),
-        }
+        self.into()
     }
+
     pub fn caused_by(mut self, t: ReturnTrace) -> Self {
         t.caused(&mut self);
         self
+    }
+}
+
+impl<T, E> From<Trace<T, E>> for Result<T, Traced<E>> {
+    fn from(value: Trace<T, E>) -> Self {
+        match value {
+            Trace::Ok(o) => Ok(o),
+            Trace::Err(e, t) => Err(Traced(e, t)),
+        }
     }
 }
 
