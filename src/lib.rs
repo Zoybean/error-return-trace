@@ -5,27 +5,13 @@ use core::ops::FromResidual;
 use core::ops::Try;
 use std::process::Termination;
 
-#[derive(Debug)]
-pub struct Location {
-    pub file: String,
-    pub line: u32,
-    pub column: u32,
-}
-impl From<std::panic::Location<'_>> for Location {
-    fn from(l: std::panic::Location<'_>) -> Self {
-        Self {
-            file: l.file().to_owned(),
-            line: l.line(),
-            column: l.column(),
-        }
-    }
-}
+pub type Location = std::panic::Location<'static>;
 
 #[derive(Default)]
 pub struct ReturnTrace(Vec<Location>);
 impl ReturnTrace {
-    pub fn push(&mut self, location: &std::panic::Location<'_>) {
-        self.0.push(location.to_owned().into())
+    pub fn push(&mut self, location: Location) {
+        self.0.push(location)
     }
 }
 impl std::fmt::Debug for ReturnTrace {
@@ -114,7 +100,7 @@ impl<T, E, F: From<E>> FromResidual<Trace<!, E>> for Trace<T, F> {
         match r {
             Trace::Err(e, mut t) => {
                 // trace the ?-return of the error
-                t.push(std::panic::Location::caller());
+                t.push(*Location::caller());
                 Self::Err(e.into(), t)
             }
             // satisfy the compiler that the match is definitely exhaustive
