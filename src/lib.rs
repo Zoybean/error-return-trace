@@ -106,7 +106,7 @@ impl<T, E, F: From<E>> FromResidual<Trace<!, E>> for Trace<T, F> {
     fn from_residual(r: Trace<!, E>) -> Self {
         match r {
             Trace::Err(e, mut t) => {
-                //
+                // trace the ?-return of the error
                 t.push_trace();
                 Self::Err(e.into(), t)
             }
