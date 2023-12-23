@@ -1,58 +1,61 @@
 use thiserror::Error;
+use trace::Trace::{Err, Ok};
 use trace::*;
 
-pub fn main() -> Trace<(), Error> {
-    let f = foo(12)?;
-    Trace::Ok(f)
+/// Demonstrate the example from https://ziglang.org/documentation/master/#Error-Return-Traces
+pub fn main() -> Trace<(), BarError> {
+    Ok(foo(12)?)
 }
 
-fn foo(x: i32) -> Trace<(), Error> {
+fn foo(x: i32) -> Trace<(), BarError> {
     if x >= 5 {
-        Trace::Ok(bar()?)
+        Ok(bar()?)
     } else {
-        Trace::Ok(bang2()?)
+        Ok(bang2()?)
     }
 }
 
 #[derive(Debug, Error)]
-#[error("File not found")]
-pub struct FileNotFound;
-#[derive(Debug, Error)]
-#[error("Permission denied")]
-pub struct PermissionDenied;
-
-#[derive(Debug, Error)]
-pub enum Error {
+pub enum BarError {
     #[error("{0}")]
     FileNotFound(#[from] FileNotFound),
     #[error("{0}")]
     PermissionDenied(#[from] PermissionDenied),
 }
-fn bar() -> Trace<(), Error> {
+
+fn bar() -> Trace<(), BarError> {
     match baz() {
-        Trace::Ok(()) => Trace::Ok(quux()?),
-        Trace::Err(e, t) => match e {
-            FileNotFound => Trace::Ok(hello().with_trace(t)?),
+        Ok(()) => Ok(quux()?),
+        Err(e, t) => match e {
+            FileNotFound => Ok(hello().caused_by(t)?),
         },
     }
 }
 
 fn baz() -> Trace<(), FileNotFound> {
-    Trace::Ok(bang1()?)
+    Ok(bang1()?)
 }
 
-fn quux() -> Trace<(), Error> {
-    Trace::Ok(bang2()?)
+fn quux() -> Trace<(), PermissionDenied> {
+    Ok(bang2()?)
 }
 
-fn hello() -> Trace<(), Error> {
-    Trace::Ok(bang2()?)
+fn hello() -> Trace<(), PermissionDenied> {
+    Ok(bang2()?)
 }
+
+#[derive(Debug, Error)]
+#[error("File not found")]
+pub struct FileNotFound;
 
 fn bang1() -> Trace<(), FileNotFound> {
-    Trace::err(FileNotFound)
+    Trace::err(FileNotFound)?
 }
 
+#[derive(Debug, Error)]
+#[error("Permission denied")]
+pub struct PermissionDenied;
+
 fn bang2() -> Trace<(), PermissionDenied> {
-    Trace::err(PermissionDenied)
+    Trace::err(PermissionDenied)?
 }

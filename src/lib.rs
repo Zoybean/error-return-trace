@@ -5,7 +5,6 @@ use core::ops::FromResidual;
 use core::ops::Try;
 use std::process::Termination;
 
-// just temporary, bc these details matter the least for this draft
 #[derive(Debug)]
 pub struct Location {
     pub file: String,
@@ -22,14 +21,20 @@ impl From<std::panic::Location<'_>> for Location {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct ReturnTrace(Vec<Location>);
+impl std::fmt::Debug for ReturnTrace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#?}", self.0)
+    }
+}
+
 #[derive(Debug)]
 pub struct Traced<E>(E, ReturnTrace);
 
 impl ReturnTrace {
     #[track_caller]
-    pub fn append_trace(&mut self) {
+    pub fn push_trace(&mut self) {
         let l = *std::panic::Location::caller();
         self.0.push(l.into())
     }
@@ -46,18 +51,36 @@ impl<T, E> Trace<T, E> {
     }
 
     fn as_result(self) -> Result<T, Traced<E>> {
-        Ok(self?)
-    }
-    pub fn with_trace(self, t: ReturnTrace) -> Self {
         match self {
-            Trace::Ok(o) => Trace::Ok(o),
-            Trace::Err(e, mut t2) => {
-                t2.0.extend(t.0);
-                Trace::Err(e, t2)
-            }
+            Trace::Ok(o) => Ok(o),
+            Trace::Err(e, t) => Err(Traced(e, t)),
+        }
+    }
+    pub fn caused_by(mut self, t: ReturnTrace) -> Self {
+        t.caused(&mut self);
+        self
+    }
+}
+
+trait Caused<T> {
+    fn caused(self, other: &mut T);
+}
+impl Caused<Self> for ReturnTrace {
+    fn caused(mut self, other: &mut Self) {
+        // put the cause first
+        std::mem::swap(&mut self, other);
+        // put the rest of the trace after
+        other.0.extend(self.0);
+    }
+}
+impl<T, E> Caused<Trace<T, E>> for ReturnTrace {
+    fn caused(self, other: &mut Trace<T, E>) {
+        if let Trace::Err(_, ref mut t) = other {
+            self.caused(t);
         }
     }
 }
+
 impl<T, E> Try for Trace<T, E> {
     type Output = T;
     type Residual = Trace<!, E>;
@@ -76,26 +99,24 @@ impl<T, E, F: From<E>> FromResidual<Trace<!, E>> for Trace<T, F> {
     #[track_caller]
     fn from_residual(r: Trace<!, E>) -> Self {
         match r {
-            Trace::Ok(never) => match never {}, // satisfy the compiler that it is definitely exhaustive
             Trace::Err(e, mut t) => {
-                t.append_trace();
+                // trace the expression marked with the ?-operator
+                t.push_trace();
                 Self::Err(e.into(), t)
             }
+            // satisfy the compiler that the match is definitely exhaustive
+            Trace::Ok(never) => match never {},
         }
     }
 }
+
 impl<T, E, F: From<E>> FromResidual<Trace<!, E>> for Result<T, Traced<F>> {
     #[track_caller]
     fn from_residual(r: Trace<!, E>) -> Self {
-        match r {
-            Trace::Ok(never) => match never {}, // satisfy the compiler that it is definitely exhaustive
-            Trace::Err(e, mut t) => {
-                t.append_trace();
-                Self::Err(Traced(e.into(), t))
-            }
-        }
+        Trace::from_residual(r).as_result()
     }
 }
+
 impl<T, E> Termination for Trace<T, E>
 where
     T: Termination,
