@@ -48,6 +48,10 @@ impl<T, E> Trace<T, E> {
     pub fn err(e: E) -> Self {
         Self::Err(e, Default::default())
     }
+    #[track_caller]
+    pub fn err_here(e: E) -> Self {
+        Trace::err(e)?
+    }
 
     fn as_result(self) -> Result<T, Traced<E>> {
         self.into()
