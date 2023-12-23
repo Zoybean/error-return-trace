@@ -1,6 +1,5 @@
 use thiserror::Error;
-use trace::Trace::{Err, Ok};
-use trace::*;
+use trace::Trace::{self, Err, Ok};
 
 /// Demonstrate the example from https://ziglang.org/documentation/master/#Error-Return-Traces
 pub fn main() -> Trace<(), BarError> {
